@@ -1,0 +1,62 @@
+version: "3.9"
+
+services:
+  backend:
+    labels: 
+      - "backend"
+    build:
+      context: backend
+    command: uvicorn main:app --host 0.0.0.0 --reload
+    environment: 
+      MONGO_HOST: mongodb
+      MONGO_USER: admin
+      MONGO_PASS: admin
+    volumes:
+      - type: bind
+        source: ./backend
+        target: /backend
+    ports:
+      - target: 8000
+        published: 8000
+    networks:
+      - planning-poker
+  frontend:
+    image: docker.io/library/node:16.4.2-alpine
+    labels:
+      - "frontend"
+    working_dir: /frontend
+    volumes:
+      - type: bind
+        source: ./frontend
+        target: /frontend
+    ports:
+      - target: 4200
+        published: 80
+    networks:
+      - planning-poker
+    command: npm start
+  mongodb:
+    container_name: "mongodb"
+    image: mongo:5.0
+    ports:
+      - target: 27017
+        published: 27017
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin
+      - MONGO_INITDB_ROOT_DATABASE=admin
+    volumes:
+      - type: volume
+        source: planning-poker-mongo-data
+        target: /data/db
+    networks:
+      - planning-poker
+
+volumes:
+  planning-poker-mongo-data:
+    driver: local
+    
+networks:
+  planning-poker:
+    name: fastapi_test
+    driver: bridge
