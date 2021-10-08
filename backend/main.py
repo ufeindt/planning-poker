@@ -1,6 +1,9 @@
-from fastapi import FastAPI, HTTPException
+import json
+
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
+from lib.websockets import WebsocketManager, WebsocketMessage
 from models.poll import (
     UserAddRequest,
     Poll,
@@ -9,7 +12,7 @@ from models.poll import (
     add_user_to_poll,
     fetch_poll,
     insert_poll,
-    update_vote
+    update_vote,
 )
 
 origins = [
@@ -26,15 +29,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
-
-
-@app.get("/poll")
-async def get_poll():
-    return {"message": "Hello World"}
+ws_manager = WebsocketManager()
 
 
 @app.post("/poll")
@@ -67,7 +62,9 @@ async def get_poll_by_poll_and_user_id(poll_id: str, user_id: str) -> Poll:
 
 
 @app.put("/poll/{poll_id}/user/{user_id}")
-async def update_user_vote(poll_id: str, user_id: str, request: VoteUpdateRequest) -> Poll:
+async def update_user_vote(
+    poll_id: str, user_id: str, request: VoteUpdateRequest
+) -> Poll:
     try:
         poll = update_vote(poll_id, user_id, request.vote)
     except ValueError as e:
@@ -75,3 +72,16 @@ async def update_user_vote(poll_id: str, user_id: str, request: VoteUpdateReques
 
     poll.pop("_id")
     return poll
+
+
+@app.websocket("/ws/poll/{poll_id}/user/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, poll_id: str, user_id: str):
+    await ws_manager.connect(websocket, poll_id, user_id)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            # await ws_manager.send_personal_message(f"OK", websocket)
+            data = WebsocketMessage(**json.loads(data))
+            await ws_manager.process_message(data)
+    except WebSocketDisconnect:
+        ws_manager.disconnect(poll_id, user_id)

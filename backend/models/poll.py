@@ -43,6 +43,15 @@ class VoteUpdateRequest(BaseModel):
     vote: Optional[int]
 
 
+def update_poll_document(poll: dict):
+    """
+    Update an existing poll document in the DB.
+    """
+    with MongoClient(uri) as client:
+        collection = client.planning_poker.polls
+        collection.replace_one({"_id": poll["_id"]}, poll)
+
+
 def insert_poll(request: PollCreateRequest) -> Poll:
     """
     Create a new poll and insert it into the DB.
@@ -97,10 +106,7 @@ def add_user_to_poll(poll_id: str, name: str) -> UserAddResult:
     poll["participants"][new_user.user_id] = new_user.dict()
     poll["poll_status"] = PollStatus.VOTES_PENDING
 
-    with MongoClient(uri) as client:
-        collection = client.planning_poker.polls
-        collection.replace_one({"_id": poll["_id"]}, poll)
-
+    update_poll_document(poll)
     return UserAddResult(user_id=new_user.user_id, poll=poll)
 
 
@@ -134,8 +140,44 @@ def update_vote(poll_id: str, user_id: str, vote: int = None) -> Poll:
         ):
             poll["poll_status"] = PollStatus.VOTES_RECEIVED
 
-        with MongoClient(uri) as client:
-            collection = client.planning_poker.polls
-            collection.replace_one({"_id": poll["_id"]}, poll)
+    update_poll_document(poll)
+    return poll
 
+
+def reset_poll(poll_id: str, user_id: str) -> Poll:
+    """
+    Reset all votes in a poll and return the updated poll.
+    Only the poll owner is permitted to reset the poll.
+    """
+    poll = fetch_poll(poll_id)
+    if poll is None:
+        raise ValueError("Poll not found.")
+    if user_id != poll["owner_id"]:
+        raise ValueError("Only the owner may reset the poll.")
+
+    poll["poll_status"] = PollStatus.VOTES_PENDING
+    for user_id in poll["participants"].keys():
+        poll["participants"][user_id]["vote_status"] = VoteStatus.PENDING
+        poll["participants"][user_id]["vote"] = None
+
+    update_poll_document(poll)
+    return poll
+
+
+def reveal_poll_result(poll_id: str, user_id: str) -> Poll:
+    """
+    Set a poll's status to reveal and return the updated poll.
+    Only the poll owner is permitted to reveal the poll.
+    """
+    poll = fetch_poll(poll_id)
+    if poll is None:
+        raise ValueError("Poll not found.")
+    if poll["poll_status"] == PollStatus.VOTES_PENDING:
+        raise ValueError("Poll still has votes pending.")
+    if user_id != poll["owner_id"]:
+        raise ValueError("Only the owner may reveal the poll.")
+
+    poll["poll_status"] = PollStatus.POLL_REVEALED
+
+    update_poll_document(poll)
     return poll
