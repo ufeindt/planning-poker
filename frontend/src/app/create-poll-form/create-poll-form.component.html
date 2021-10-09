@@ -1,0 +1,44 @@
+<mat-card>
+  <mat-card-title>Welcome to Planning Poker!</mat-card-title>
+  <mat-card-subtitle>
+    To start, please enter your name and a task description.
+  </mat-card-subtitle>
+  <form #createPollForm="ngForm" (ngSubmit)="submitForm()">
+    <mat-form-field>
+      <mat-label>Name</mat-label>
+      <input
+        type="text"
+        matInput
+        placeholder="Please enter your name."
+        required
+        [(ngModel)]="name"
+        name="name"
+        #nameInput="ngModel"
+      />
+      <mat-error *ngIf="nameInput?.errors && nameInput.errors?.required">
+        Required field.
+      </mat-error>
+    </mat-form-field>
+    <br/>
+    <mat-form-field>
+      <mat-label>Task Description</mat-label>
+      <input
+        type="text"
+        matInput
+        placeholder="Please enter a description of the task."
+        required
+        [(ngModel)]="description"
+        name="description"
+        #descriptionInput="ngModel"
+      />
+      <mat-error
+        *ngIf="descriptionInput?.errors && descriptionInput.errors?.required"
+      >
+        Required field.
+      </mat-error>
+    </mat-form-field>
+    <br/>
+
+    <button mat-raised-button type="submit">Submit</button>
+  </form>
+</mat-card>

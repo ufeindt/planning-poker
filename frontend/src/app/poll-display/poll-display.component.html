@@ -1,0 +1,105 @@
+<mat-card>
+  <mat-card-title>Welcome to Planning Poker!</mat-card-title>
+  <mat-card-subtitle>
+    <span *ngIf="myVoteStatus === 'pending'">
+      Please select your estimate (in the agreed-upon units) below.
+    </span>
+    <span *ngIf="pollStatus === 'votes pending' && myVoteStatus === 'voted'">
+      Thank you for voting! Once all votes are in,
+      {{ userId === ownerId ? "you" : "the poll owner" }} can reveal the result.
+      You can still change your vote.
+    </span>
+    <span *ngIf="pollStatus === 'votes received' && myVoteStatus === 'voted'">
+      All votes are in. {{ userId === ownerId ? "You" : "The poll owner" }} can
+      now reveal the result. You can still change your vote.
+    </span>
+    <span *ngIf="pollStatus === 'poll revealed' && consensus">
+      Everybody agrees on the same time estimate.
+    </span>
+    <span *ngIf="pollStatus === 'poll revealed' && !consensus">
+      No consensus has been reached. Please discuss your estimates and reset the
+      poll if necessary.
+    </span>
+  </mat-card-subtitle>
+  <p>
+    <b>Copy this link to share the poll:</b>
+    {{ " " }}
+    <a [href]="pollLink">{{ pollLink }}</a>
+    {{ " " }}
+    <mat-icon [cdkCopyToClipboard]="pollLink" (click)="showCopyLinkSnackbar()">
+      content_copy
+    </mat-icon>
+  </p>
+  <p><b>Task description:</b> {{ description }}</p>
+
+  <div *ngIf="pollStatus !== 'poll revealed'" class="button-container">
+    <button
+      *ngFor="let pollOption of pollOptions"
+      mat-raised-button
+      [color]="pollOption === myVote ? 'primary' : 'basic'"
+      type="button"
+      (click)="submitVote(pollOption)"
+    >
+      {{ pollOption }}
+    </button>
+
+    <button
+      *ngIf="myVoteStatus === 'voted'"
+      mat-raised-button
+      color="warn"
+      type="button"
+      (click)="resetVote()"
+    >
+      Reset Vote
+    </button>
+  </div>
+  <button
+    *ngIf="pollStatus === 'votes received' && userId === ownerId"
+    mat-raised-button
+    color="primary"
+    type="button"
+    (click)="revealPoll()"
+    class="reveal-button"
+  >
+    Reveal Results
+  </button>
+</mat-card>
+<mat-card *ngIf="participants && pollStatus !== 'poll revealed'">
+  <mat-card-title>Participants</mat-card-title>
+  <mat-chip-list>
+    <mat-chip *ngFor="let participant of participants">
+      {{ participant.name }}
+      {{ participant.user_id === ownerId ? "(Owner)" : "" }}
+      {{ participant.user_id === userId ? "(You)" : "" }}
+      <mat-icon *ngIf="participant.vote_status === 'voted'" title="Voted">
+        check
+      </mat-icon>
+      <mat-icon *ngIf="participant.vote_status === 'pending'" title="Pending">
+        hourglass_empty
+      </mat-icon>
+    </mat-chip>
+  </mat-chip-list>
+</mat-card>
+<mat-card *ngIf="pollStatus === 'poll revealed'">
+  <mat-card-title>Results</mat-card-title>
+  <mat-card *ngFor="let pollOption of pollOptionsWithVotes; let i = index">
+    <mat-card-title>{{ pollOption }}</mat-card-title>
+    <mat-chip-list>
+      <mat-chip *ngFor="let vote of groupedVotes[i]">
+        {{ vote.name }}
+        {{ vote.userId === ownerId ? "(Owner)" : "" }}
+        {{ vote.userId === userId ? "(You)" : "" }}
+      </mat-chip>
+    </mat-chip-list>
+  </mat-card>
+  <br />
+  <button
+    *ngIf="!consensus && userId === ownerId"
+    mat-raised-button
+    color="warn"
+    type="button"
+    (click)="resetPoll()"
+  >
+    Reset Poll
+  </button>
+</mat-card>
